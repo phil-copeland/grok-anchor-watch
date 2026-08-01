@@ -1,0 +1,30 @@
+# Fly.io deploy: from repo root
+#   fly launch --no-deploy   # first time
+#   fly secrets set BOAT_TOKEN=... VIEW_TOKEN=... BOAT_NAME=Breeze
+#   fly deploy
+#
+# Phone URL: https://<your-app>.fly.dev/watch?token=<VIEW_TOKEN>
+
+app = "breeze-anchor-watch"  # change to your unique app name
+primary_region = "syd"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  PORT = "8787"
+  BOAT_NAME = "Breeze"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/health"

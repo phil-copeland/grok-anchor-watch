@@ -1,0 +1,18 @@
+{
+  "name": "anchor-watch-boat-agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads Signal K on the boat and pushes telemetry to Anchor Watch cloud",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "demo": "node src/index.js --demo"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

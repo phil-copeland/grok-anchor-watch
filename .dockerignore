@@ -1,0 +1,12 @@
+node_modules
+server/node_modules
+boat-agent/node_modules
+dist
+.git
+*.log
+fly-secrets.local.env
+.env
+**/.env
+scripts
+DEPLOY.md
+README.md

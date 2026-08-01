@@ -1,0 +1,19 @@
+{
+  "name": "anchor-watch-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloud relay for Anchor Watch — boat pushes telemetry, phones watch live",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "ws": "^8.18.3"
+  }
+}
