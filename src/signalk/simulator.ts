@@ -78,10 +78,20 @@ export class AnchorSimulator {
       windSpeedMs,
       windSpeedSource: 'true',
       windDirectionRad: windDir,
-      windDirectionSource: 'directionTrue',
+      windDirectionSource: 'directionMagnetic',
       latitude: lat,
       longitude: lon,
-      headingTrueRad: bearingFromAnchor + Math.PI + Math.sin(elapsed / 20) * 0.1,
+      // Keep heading in [0, 2π) so UI never sees unbounded growth / wrap snaps
+      headingTrueRad: (() => {
+        const raw =
+          bearingFromAnchor + Math.PI + Math.sin(elapsed / 20) * 0.1;
+        const twoPi = Math.PI * 2;
+        let h = raw % twoPi;
+        if (h < 0) h += twoPi;
+        return h;
+      })(),
+      // Demo: ~23°E as if from Signal K (e.g. NZ)
+      magneticVariationRad: degToRad(23),
       speedOverGroundMs: 0.15 + Math.abs(Math.sin(elapsed / 25)) * 0.3,
       maxRadiusM: this.maxRadiusM,
       alarmRadiusM: this.maxRadiusM,

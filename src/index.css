@@ -336,7 +336,7 @@ button {
 .main {
   flex: 1;
   padding: 1rem 1.25rem 2rem;
-  max-width: 1200px;
+  max-width: 1480px;
   width: 100%;
   margin: 0 auto;
   display: flex;
@@ -497,6 +497,13 @@ button {
   color: var(--accent);
 }
 
+/* Reset next to Watch on/off — clear data for a new anchorage */
+.reset-data-btn {
+  flex-shrink: 0;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 .control-hint-off {
   color: var(--warn) !important;
 }
@@ -553,22 +560,25 @@ button {
   white-space: nowrap;
 }
 
-.hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+.side-metrics {
+  display: flex;
+  flex-direction: column;
   gap: 0.75rem;
+  min-width: 0;
 }
 
-@media (max-width: 900px) {
-  .hero-metrics {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.side-metrics .metric-card {
+  flex: 1;
+  justify-content: center;
 }
 
-@media (max-width: 480px) {
-  .hero-metrics {
-    grid-template-columns: 1fr;
-  }
+/* Slightly tighter type in the side columns so labels fit */
+.side-metrics .metric-card.large .metric-value {
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+}
+
+.side-metrics .metric-label {
+  line-height: 1.25;
 }
 
 .metric-card {
@@ -584,6 +594,186 @@ button {
 
 .metric-card.large {
   min-height: 110px;
+}
+
+/* Heading + yaw side-by-side (must win over .metric-card column direction) */
+.metric-card.metric-card-split {
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.metric-split-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  justify-content: center;
+  padding: 0 0.35rem;
+}
+
+.metric-split-yaw .metric-value {
+  color: var(--gold);
+}
+
+.metric-split-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.15rem 0;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* Yaw sparkline card */
+.metric-card-yaw-chart {
+  padding: 0.65rem 0.75rem 0.55rem;
+  gap: 0.25rem;
+  min-height: 0;
+}
+
+.yaw-chart-head {
+  flex-shrink: 0;
+}
+
+.yaw-chart {
+  flex: 1;
+  min-height: 5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.yaw-chart-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  width: 100%;
+  min-height: 5rem;
+}
+
+.yaw-y-axis {
+  position: relative;
+  flex: 0 0 2.35rem;
+  width: 2.35rem;
+  align-self: stretch;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  /* Match SVG vertical padding (~8/100) */
+  margin: 0;
+}
+
+.yaw-y-tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.yaw-y-tick-max {
+  color: var(--accent);
+}
+
+.yaw-y-tick-min {
+  color: var(--wind);
+}
+
+.yaw-y-tick-mid {
+  color: var(--muted);
+  opacity: 0.95;
+}
+
+.yaw-chart-svg {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 5rem;
+  display: block;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.yaw-chart-line {
+  stroke: var(--gold);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.yaw-chart-twd {
+  stroke: var(--wind);
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.yaw-chart-mean {
+  stroke: rgba(106, 138, 152, 0.55);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.yaw-chart-grid {
+  stroke: rgba(58, 96, 112, 0.45);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.yaw-chart-peak {
+  fill: var(--accent);
+}
+
+.yaw-chart-trough {
+  fill: var(--wind);
+}
+
+.yaw-chart-hover-x {
+  stroke: rgba(201, 162, 39, 0.45);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.yaw-chart-hover-dot {
+  fill: var(--gold);
+  stroke: var(--bg-card);
+  stroke-width: 1.5;
+}
+
+.yaw-chart-tip-bg {
+  fill: rgba(6, 16, 22, 0.92);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.yaw-chart-tip-text {
+  fill: var(--text);
+  font-size: 9px;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.yaw-chart-empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 4.5rem;
+}
+
+.yaw-chart-placeholder,
+.yaw-chart-status {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.yaw-chart-status {
+  margin-top: 0.15rem;
 }
 
 .metric-label {
@@ -646,17 +836,125 @@ button {
 }
 
 /* —— Viz row —— */
-.viz-row {
+/* Left: swing circle | Right: SailSteer — matched, centered dials */
+.viz-row-main {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1rem;
   align-items: stretch;
+  container-type: inline-size;
+  container-name: vizmain;
+  /*
+   * Equal dial diameter. Leave room for side cards (~7rem each side of dial)
+   * so quads sit outside the circles.
+   */
+  --instrument-side: 6.75rem;
+  /* Floor dial size so side cards (distance/bearing) never collapse away */
+  --instrument-dial: max(
+    10rem,
+    min(
+      calc((100cqi - 1rem) / 2 - 2 * var(--instrument-side) - 1.5rem),
+      min(48vh, 24rem)
+    )
+  );
 }
 
-@media (max-width: 800px) {
-  .viz-row {
+.viz-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.viz-col-left .radar-panel,
+.viz-col-right .sailsteer-panel-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.65rem 0.5rem 0.5rem;
+}
+
+.viz-col-left .radar-panel .panel-head,
+.viz-col-right .sailsteer-panel-main .panel-head {
+  flex-shrink: 0;
+  margin-bottom: 0.25rem;
+  padding-bottom: 0.3rem;
+  min-height: 1.5rem;
+}
+
+/* Shared square dial size */
+.viz-row-main .radar-stage,
+.viz-row-main .sailsteer-stage {
+  position: relative;
+  width: var(--instrument-dial);
+  height: var(--instrument-dial);
+  max-width: 100%;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.viz-row-main .radar-svg-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: none;
+  container-type: size;
+}
+
+.viz-row-main .radar-svg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+
+.viz-row-main .sailsteer-yaw {
+  width: min(
+    100%,
+    calc(var(--instrument-dial) + 2 * var(--instrument-side) + 1.3rem)
+  );
+  max-width: 100%;
+}
+
+.viz-row-main .radar-wrap,
+.viz-row-main .sailsteer {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .viz-row-main {
     grid-template-columns: 1fr;
+    --instrument-dial: min(
+      calc(100cqi - 2 * var(--instrument-side) - 2rem),
+      min(70vw, 24rem),
+      48vh
+    );
   }
+}
+
+@media (max-width: 560px) {
+  .viz-row-main {
+    --instrument-side: 5.25rem;
+    --instrument-dial: min(
+      calc(100cqi - 2 * var(--instrument-side) - 1.5rem),
+      58vw,
+      40vh
+    );
+  }
+}
+
+/* Legacy multi-column viz (unused on main) */
+.viz-row {
+  display: grid;
+  gap: 1rem;
+  align-items: stretch;
 }
 
 .panel {
@@ -712,44 +1010,147 @@ button {
 .radar-wrap {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: 0.3rem;
   flex: 1;
   min-height: 0;
   width: 100%;
 }
 
-/* Fills remaining panel height (same row as wind panel); SVG is square within it */
-.radar-svg-host {
-  flex: 1 1 auto;
-  min-height: 12rem;
+/* Cards outside dial: [distance] [circle] [bearing] */
+.radar-frame {
+  display: grid;
+  grid-template-columns:
+    minmax(5.5rem, var(--instrument-side, 6.75rem))
+    var(--instrument-dial, min(100%, 24rem))
+    minmax(5.5rem, var(--instrument-side, 6.75rem));
+  gap: 0.5rem 0.65rem;
+  align-items: start;
+  justify-content: center;
   width: 100%;
+  max-width: 100%;
+  overflow: visible;
+}
+
+.radar-stage {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  width: var(--instrument-dial, min(100%, 24rem));
+  height: var(--instrument-dial, min(100%, 24rem));
+  max-width: 100%;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+}
+
+/* SVG fills the square stage */
+.radar-svg-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   container-type: size;
 }
 
-.radar-svg {
-  /* Fit the smaller of host width/height so circle fills the window without overflow */
-  width: min(100cqw, 100cqh);
-  height: min(100cqw, 100cqh);
-  display: block;
+.radar-quad {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  min-width: 0;
+  width: 100%;
+  max-width: var(--instrument-side, 6.75rem);
+  padding: 0.4rem 0.5rem 0.42rem;
+  background: rgba(8, 22, 30, 0.88);
+  border: 1px solid rgba(58, 96, 112, 0.75);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: help;
 }
 
-/* Fallback when container queries unavailable */
-@supports not (width: 1cqw) {
-  .radar-svg {
-    width: 100%;
-    height: auto;
-    max-height: 100%;
-    aspect-ratio: 1;
-  }
+.radar-quad-dist {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.radar-quad-high {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: end;
+}
+
+.radar-quad-high .radar-quad-value {
+  color: #e8c86a;
+}
+
+.radar-quad-brg {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: start;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.radar-quad-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.radar-quad-value {
+  font-size: clamp(1rem, 2.4vw, 1.35rem);
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.radar-quad-sub {
+  font-size: 0.6rem;
+  color: var(--muted);
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+.radar-quad.accent-ok .radar-quad-value {
+  color: var(--accent);
+}
+
+.radar-quad.accent-warn .radar-quad-value {
+  color: var(--warn);
+}
+
+.radar-quad.accent-alarm .radar-quad-value {
+  color: var(--alarm);
+}
+
+.radar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .radar-label {
   font-size: 11px;
   font-family: var(--font);
+}
+
+.radar-waypoint-text {
+  font-size: 9.5px;
+  font-family: var(--font);
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .radar-legend {
@@ -760,6 +1161,8 @@ button {
   font-size: 0.78rem;
   color: var(--muted);
   flex-shrink: 0;
+  width: min(100%, var(--instrument-dial, 26rem));
+  margin: 0 auto;
 }
 
 .radar-legend-line {
@@ -882,12 +1285,14 @@ button {
   gap: 0.5rem;
 }
 
-.secondary-metrics .metric-card:last-child {
-  grid-column: 1 / -1;
-}
-
 .secondary-metrics .metric-value {
   font-size: 1.05rem;
+}
+
+/* Long lat/lon strings wrap cleanly in the half-width card */
+.secondary-metrics .metric-card:last-child .metric-value {
+  font-size: 0.95rem;
+  word-break: break-word;
 }
 
 /* —— History —— */
@@ -902,6 +1307,10 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+
+.charts-grid-single {
+  grid-template-columns: 1fr;
 }
 
 @media (max-width: 800px) {
@@ -930,6 +1339,13 @@ button {
   fill: #6a8a98;
   font-size: 11px;
   font-family: var(--mono);
+}
+
+.simple-chart-ref-label {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .simple-chart-legend {
@@ -1087,6 +1503,20 @@ button {
   gap: 0.6rem;
 }
 
+/* Discovered Signal K heading sources (Settings) */
+.source-pick-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.source-pick-list .btn.is-selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(62, 207, 154, 0.1);
+}
+
 .field.checkbox span {
   color: var(--text);
   font-size: 0.9rem;
@@ -1099,6 +1529,411 @@ button {
   padding-top: 1rem;
   border-top: 1px solid var(--border);
 }
+
+/* —— View nav (Anchor / SailSteer) —— */
+.view-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.15rem;
+  border-radius: 10px;
+  background: rgba(8, 24, 32, 0.65);
+  border: 1px solid var(--border);
+}
+
+.view-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+.view-nav-btn.is-active {
+  border-color: var(--accent-dim);
+  background: rgba(62, 207, 154, 0.12);
+  color: var(--accent);
+}
+
+.view-nav-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  background: rgba(201, 162, 39, 0.2);
+  color: var(--gold);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+}
+
+.view-nav-btn.is-active .view-nav-badge {
+  background: rgba(62, 207, 154, 0.15);
+  border-color: rgba(62, 207, 154, 0.35);
+  color: var(--accent);
+}
+
+/* —— SailSteer —— */
+.sailsteer-panel {
+  flex: 0 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0.65rem 0.75rem 0.5rem;
+}
+
+.sailsteer-panel .panel-head {
+  flex-shrink: 0;
+  margin-bottom: 0.15rem;
+  padding-bottom: 0.35rem;
+}
+
+.sailsteer {
+  --ss-port: #e86a6a;
+  --ss-stbd: #3fd4a8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+/* Cards outside dial:
+ * [TWS] [  circle  ] [TWA]
+ * [TWD] [          ] [YAW]
+ */
+.sailsteer-frame {
+  display: grid;
+  grid-template-columns:
+    minmax(5.25rem, var(--instrument-side, 6.75rem))
+    var(--instrument-dial, min(100%, 24rem))
+    minmax(5.25rem, var(--instrument-side, 6.75rem));
+  grid-template-rows: 1fr 1fr;
+  gap: 0.4rem 0.65rem;
+  align-items: stretch;
+  justify-content: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.sailsteer-stage {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: var(--instrument-dial, min(100%, 24rem));
+  height: var(--instrument-dial, min(100%, 24rem));
+  max-width: 100%;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.sailsteer-dial-host {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sailsteer-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* Crisp instrument lines */
+  shape-rendering: geometricPrecision;
+}
+
+.sailsteer-cardinal {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font);
+  letter-spacing: 0.02em;
+}
+
+.sailsteer-tick-label {
+  font-size: 8.5px;
+  font-weight: 600;
+  font-family: var(--mono);
+}
+
+.sailsteer-hdg-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  font-family: var(--font);
+  text-transform: uppercase;
+}
+
+.sailsteer-hdg-value {
+  /* Match TWS/TWA corner card value weight/size on the dial */
+  font-size: 20px;
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sailsteer-hdg-arrow {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font);
+}
+
+/* Up = port (red); down = starboard (green) */
+.sailsteer-hdg-arrow-up {
+  fill: #e86a6a;
+}
+
+.sailsteer-hdg-arrow-down {
+  fill: #3fd4a8;
+}
+
+.sailsteer-wind-letter {
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font);
+}
+
+/* Compact glass cards in the four corners of the stage */
+.sailsteer-quad {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  min-width: 0;
+  width: 100%;
+  max-width: var(--instrument-side, 6.75rem);
+  padding: 0.4rem 0.5rem 0.42rem;
+  background: rgba(8, 22, 30, 0.88);
+  border: 1px solid rgba(58, 96, 112, 0.75);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  cursor: help;
+}
+
+/* Hover / focus detail tip for instrument info cards */
+.info-tip {
+  position: relative;
+  outline: none;
+}
+
+.info-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  bottom: calc(100% + 0.4rem);
+  transform: translateX(-50%) translateY(0.15rem);
+  min-width: 10rem;
+  max-width: min(16rem, 70vw);
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(6, 16, 22, 0.96);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  white-space: pre-line;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.12s ease,
+    transform 0.12s ease,
+    visibility 0.12s;
+}
+
+.info-tip:hover::after,
+.info-tip:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Side cards: tip toward the dial (inward) */
+.sailsteer-quad-tws.info-tip::after,
+.sailsteer-quad-twd.info-tip::after,
+.radar-quad-dist.info-tip::after,
+.radar-quad-high.info-tip::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(0.15rem);
+}
+
+.sailsteer-quad-tws.info-tip:hover::after,
+.sailsteer-quad-tws.info-tip:focus-visible::after,
+.sailsteer-quad-twd.info-tip:hover::after,
+.sailsteer-quad-twd.info-tip:focus-visible::after,
+.radar-quad-dist.info-tip:hover::after,
+.radar-quad-dist.info-tip:focus-visible::after,
+.radar-quad-high.info-tip:hover::after,
+.radar-quad-high.info-tip:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+.sailsteer-quad-twa.info-tip::after,
+.sailsteer-quad-yaw.info-tip::after,
+.radar-quad-brg.info-tip::after {
+  left: 0;
+  right: auto;
+  transform: translateX(0) translateY(0.15rem);
+}
+
+.sailsteer-quad-twa.info-tip:hover::after,
+.sailsteer-quad-twa.info-tip:focus-visible::after,
+.sailsteer-quad-yaw.info-tip:hover::after,
+.sailsteer-quad-yaw.info-tip:focus-visible::after,
+.radar-quad-brg.info-tip:hover::after,
+.radar-quad-brg.info-tip:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* Bottom cards: tip below so they stay on-screen */
+.sailsteer-quad-twd.info-tip::after,
+.sailsteer-quad-yaw.info-tip::after {
+  bottom: auto;
+  top: calc(100% + 0.4rem);
+}
+
+.sailsteer-quad-tws {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+}
+
+.sailsteer-quad-twa {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: start;
+  align-self: start;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sailsteer-quad-twd {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+}
+
+.sailsteer-quad-yaw {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: start;
+  align-self: end;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sailsteer-quad-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.sailsteer-quad-value {
+  font-size: clamp(1rem, 2.4vw, 1.28rem);
+  font-weight: 700;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+.sailsteer-quad-sub {
+  font-size: 0.6rem;
+  color: var(--muted);
+  line-height: 1.2;
+  opacity: 0.9;
+}
+
+.sailsteer .text-port {
+  color: var(--ss-port);
+}
+
+.sailsteer .text-stbd {
+  color: var(--ss-stbd);
+}
+
+.sailsteer-yaw {
+  width: min(100%, 26rem);
+  margin: 0.15rem auto 0;
+  padding: 0.45rem 0.55rem 0.4rem;
+  background: rgba(8, 22, 30, 0.72);
+  border: 1px solid rgba(58, 96, 112, 0.65);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.sailsteer-yaw-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+.sailsteer-yaw-meta {
+  font-size: 0.68rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.yaw-chart-legend {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.yaw-legend-hdg {
+  color: var(--gold);
+}
+
+.yaw-legend-twd {
+  color: var(--wind);
+}
+
+.sailsteer-yaw .yaw-chart {
+  min-height: 5.25rem;
+}
+
+.sailsteer-yaw .yaw-chart-row {
+  min-height: 5.25rem;
+}
+
+.sailsteer-yaw .yaw-chart-svg {
+  height: 5.25rem;
+}
+
+.sailsteer-footnote {
+  margin: 0;
+  font-size: 0.68rem;
+  text-align: center;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+.footer a {
+  color: var(--wind);
+}
+
+/* Keep dials square on small screens — corner quads stay overlaid */
 
 /* —— Footer —— */
 .footer {

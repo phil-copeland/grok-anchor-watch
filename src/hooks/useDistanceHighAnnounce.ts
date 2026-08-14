@@ -10,7 +10,7 @@ const HOLD_MS = 1000;
 /** Grace after connect / source change so the first sample isn't spoken. */
 const WARMUP_MS = 2500;
 
-/** New high must exceed previous announced high by more than this (200 mm). */
+/** New high must exceed previous high by more than this (200 mm). */
 const MIN_INCREASE_M = 0.2;
 
 function speakableDistance(metres: number, unit: DistanceUnit): string {
@@ -32,32 +32,52 @@ export interface DistanceHighAnnouncement {
 }
 
 /**
- * Session high anchor distance: when distance exceeds the previous high by
- * more than 200 mm and holds that new high for over 1 second, speak + toast.
- * Runs on any live feed including cloud/remote phone UI.
+ * Session high anchor distance — one shared value for the swing-circle High
+ * box and (when enabled) voice/toast announce.
+ *
+ * A new high is committed when distance exceeds the previous high by more than
+ * 200 mm and holds for over 1 second. Warmup seeds the high silently so the
+ * first connect sample is not announced.
  *
  * @param minM — do not announce until distance is at least this (metres); 0 = no floor
+ * @param announceEnabled — when false, still tracks the same high (for the UI box)
+ *   but does not speak or toast
  */
 export function useDistanceHighAnnounce(
   distanceM: number | null,
   unit: DistanceUnit,
-  enabled: boolean,
+  announceEnabled: boolean,
   /** Reset session when this changes (e.g. data source) */
   sessionKey = '',
   minM = 0,
 ) {
   const [announcement, setAnnouncement] =
     useState<DistanceHighAnnouncement | null>(null);
+  /**
+   * Official session high (metres) — same number that was / would be announced.
+   * Updated only on silent seed (warmup / below floor) or confirmed hold peak.
+   */
+  const [highMarkM, setHighMarkM] = useState<number | null>(null);
 
-  /** Highest distance already announced / seeded this session (metres) */
+  /**
+   * Announce baseline (metres). Usually equals highMarkM; may be set to a
+   * synthetic floor−0.2m gate so the first announce at the floor still needs
+   * +200 mm over prior below-floor seed. Display never uses the synthetic value.
+   */
   const announcedHighM = useRef<number | null>(null);
-  /** Peak while continuously above (announced + MIN_INCREASE) */
+  /** Peak while continuously above (baseline + MIN_INCREASE) */
   const holdPeakM = useRef<number | null>(null);
   const holdSince = useRef<number | null>(null);
   const latestM = useRef<number | null>(null);
   const sessionStart = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionKeyRef = useRef(sessionKey);
+
+  /** Commit a real distance as the session high (UI + announce baseline). */
+  const commitHigh = (metres: number) => {
+    announcedHighM.current = metres;
+    setHighMarkM(metres);
+  };
 
   // New session on data-source / mode change
   useEffect(() => {
@@ -67,6 +87,7 @@ export function useDistanceHighAnnounce(
     holdPeakM.current = null;
     holdSince.current = null;
     sessionStart.current = Date.now();
+    setHighMarkM(null);
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -94,7 +115,8 @@ export function useDistanceHighAnnounce(
       timerRef.current = null;
     }
 
-    if (!enabled || distanceM == null || !Number.isFinite(distanceM)) {
+    // Always track the session high (for the swing-circle box); announce is optional.
+    if (distanceM == null || !Number.isFinite(distanceM)) {
       holdPeakM.current = null;
       holdSince.current = null;
       return;
@@ -110,32 +132,32 @@ export function useDistanceHighAnnounce(
         announcedHighM.current == null ||
         distanceM > announcedHighM.current
       ) {
-        announcedHighM.current = distanceM;
+        commitHigh(distanceM);
       }
       holdPeakM.current = null;
       holdSince.current = null;
       return;
     }
 
-    // Below user threshold — seed baseline only
+    // Below user threshold — seed baseline only (same high for UI, no announce)
     if (floor > 0 && distanceM < floor) {
       if (
         announcedHighM.current == null ||
         distanceM > announcedHighM.current
       ) {
-        announcedHighM.current = distanceM;
+        commitHigh(distanceM);
       }
       holdPeakM.current = null;
       holdSince.current = null;
       return;
     }
 
-    // First announce at/above floor: baseline just under floor so +200mm rule still applies vs prior high
+    // First rise to/above floor: synthetic baseline so +200 mm rule still applies.
+    // Do not push the synthetic value into highMarkM (display stays at last real high).
     if (
       floor > 0 &&
       (announcedHighM.current == null || announcedHighM.current < floor)
     ) {
-      // If we never reached floor before, treat floor as the gate; still require +0.2m over any higher seed below floor
       const seed = announcedHighM.current;
       if (seed == null || seed < floor - MIN_INCREASE_M) {
         announcedHighM.current = floor - MIN_INCREASE_M;
@@ -173,9 +195,11 @@ export function useDistanceHighAnnounce(
       const live = latestM.current;
       if (live == null || live <= (base ?? 0) + MIN_INCREASE_M) return;
 
-      announcedHighM.current = peak;
+      commitHigh(peak);
       holdPeakM.current = null;
       holdSince.current = null;
+
+      if (!announceEnabled) return;
 
       const text = `New high distance, ${speakableDistance(peak, unit)}`;
       speak(text);
@@ -194,9 +218,17 @@ export function useDistanceHighAnnounce(
         timerRef.current = null;
       }
     };
-  }, [distanceM, unit, enabled, minM]);
+  }, [distanceM, unit, announceEnabled, minM]);
 
   const dismiss = () => setAnnouncement(null);
 
-  return { announcement, dismiss };
+  return {
+    announcement,
+    dismiss,
+    /**
+     * Session high in metres — same value committed for announce
+     * (null until first seed / confirmed high).
+     */
+    highMarkM,
+  };
 }

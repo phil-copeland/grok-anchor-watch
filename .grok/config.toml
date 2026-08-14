@@ -1,0 +1,10 @@
+# Suga hosted MCP via local stdio proxy.
+# Grok's native HTTP transport treats Suga's 401 as "unavailable"
+# and never starts OAuth. mcp-remote opens the browser login instead.
+# First connect: complete the Suga consent screen in the browser.
+
+[mcp_servers.suga]
+command = "npx"
+args = ["-y", "mcp-remote", "https://dashboard.suga.app/api/mcp"]
+enabled = true
+startup_timeout_sec = 120

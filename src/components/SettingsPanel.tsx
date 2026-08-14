@@ -13,6 +13,8 @@ interface Props {
   onChange: (patch: Partial<AppSettings>) => void;
   onClose: () => void;
   onReset: () => void;
+  /** Live headingMagnetic sources discovered from Signal K (for quick-pick) */
+  headingSourcesSeen?: string[] | null;
 }
 
 /**
@@ -116,10 +118,12 @@ export function SettingsPanel({
   onChange,
   onClose,
   onReset,
+  headingSourcesSeen = null,
 }: Props) {
   if (!open) return null;
 
   const source = settings.dataSource;
+  const seenSources = headingSourcesSeen?.filter(Boolean) ?? [];
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
@@ -325,6 +329,137 @@ export function SettingsPanel({
                 }
               />
             </label>
+          )}
+
+          <label className="field">
+            <span>Yaw window (minutes)</span>
+            <input
+              type="number"
+              min={1}
+              max={30}
+              step={1}
+              value={settings.yawWindowMinutes}
+              onChange={(e) => {
+                const n = Math.round(Number(e.target.value) || 2);
+                onChange({
+                  yawWindowMinutes: Math.min(30, Math.max(1, n)),
+                });
+              }}
+            />
+            <small>
+              Trailing window for yaw amplitude, period, and the Yaw Watch chart
+              (1–30 minutes). Default 2.
+            </small>
+          </label>
+
+          <label className="field">
+            <span>Yaw chart (swings)</span>
+            <input
+              type="number"
+              min={3}
+              max={15}
+              step={1}
+              value={settings.yawChartSwings}
+              onChange={(e) => {
+                const n = Math.round(Number(e.target.value) || 7);
+                onChange({
+                  yawChartSwings: Math.min(15, Math.max(3, n)),
+                });
+              }}
+            />
+            <small>
+              How many half-swings (peak↔trough) to show on the yaw sparkline
+              (3–15). Default 7.
+            </small>
+          </label>
+
+          {(source === 'signalk' || source === 'demo') && (
+            <div className="field">
+              <span>Heading compass source (magnetic)</span>
+              <input
+                type="text"
+                list="heading-source-suggestions"
+                value={settings.headingMagneticSourceFilter}
+                placeholder="e.g. Precision-9 — empty = any source"
+                spellCheck={false}
+                onChange={(e) =>
+                  onChange({
+                    headingMagneticSourceFilter: e.target.value,
+                  })
+                }
+              />
+              <datalist id="heading-source-suggestions">
+                <option value="Precision-9" />
+                <option value="Navico" />
+                {settings.debugHeadingSources &&
+                  seenSources.map((s) => <option key={s} value={s} />)}
+              </datalist>
+              <label className="field checkbox" style={{ marginTop: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.debugHeadingSources}
+                  onChange={(e) =>
+                    onChange({ debugHeadingSources: e.target.checked })
+                  }
+                />
+                <span>Debug: show discovered heading sources</span>
+              </label>
+              {settings.debugHeadingSources && (
+                <>
+                  {seenSources.length > 0 ? (
+                    <div className="source-pick-list" role="list">
+                      <button
+                        type="button"
+                        className={`btn btn-ghost btn-sm${
+                          !settings.headingMagneticSourceFilter.trim()
+                            ? ' is-selected'
+                            : ''
+                        }`}
+                        onClick={() =>
+                          onChange({ headingMagneticSourceFilter: '' })
+                        }
+                      >
+                        Any source
+                      </button>
+                      {seenSources.map((s) => {
+                        const active =
+                          settings.headingMagneticSourceFilter.trim() !==
+                            '' &&
+                          s
+                            .toLowerCase()
+                            .includes(
+                              settings.headingMagneticSourceFilter
+                                .trim()
+                                .toLowerCase(),
+                            );
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            className={`btn btn-ghost btn-sm${
+                              active ? ' is-selected' : ''
+                            }`}
+                            title={s}
+                            onClick={() =>
+                              onChange({ headingMagneticSourceFilter: s })
+                            }
+                          >
+                            {s.length > 36 ? `${s.slice(0, 34)}…` : s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <small>No headingMagnetic sources seen yet.</small>
+                  )}
+                </>
+              )}
+              <small>
+                When two devices publish headingMagnetic, lock to one by name
+                or $source (case-insensitive substring). Leave empty to accept
+                any. Enable debug to list sources Signal K has reported.
+              </small>
+            </div>
           )}
 
           <label className="field checkbox">

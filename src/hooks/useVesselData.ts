@@ -19,8 +19,8 @@ import {
 /** Coalesce high-rate Signal K / simulator deltas so React doesn't re-render every message. */
 const UI_THROTTLE_MS = 1000;
 
-/** Rolling window for wind speed smoothing (display + history samples). */
-const WIND_AVG_WINDOW_MS = 2000;
+/** Rolling window for wind speed smoothing (display + history + session max). */
+const WIND_AVG_WINDOW_MS = 3000;
 
 interface WindSample {
   t: number;
@@ -29,7 +29,7 @@ interface WindSample {
 
 /**
  * Buffer wind speed samples and replace windSpeedMs with the mean over the last
- * ~2 s so the gauge and history don't jump on every gust sample.
+ * ~3 s so the gauge, history, and session max don't jump on every gust sample.
  */
 function averageWindSpeed(
   d: VesselData,
@@ -211,6 +211,9 @@ export function useVesselData(
         setStatus(s);
         if (msg) setStatusMessage(msg);
       },
+      {
+        headingMagneticSourceFilter: settings.headingMagneticSourceFilter,
+      },
     );
     clientRef.current = client;
     client.connect(settings.serverUrl, settings.useTls);
@@ -223,6 +226,7 @@ export function useVesselData(
     settings.dataSource,
     settings.serverUrl,
     settings.useTls,
+    settings.headingMagneticSourceFilter,
     settings.cloudUrl,
     settings.cloudViewToken,
     stopAll,

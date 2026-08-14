@@ -4,8 +4,24 @@ export interface ChartSeriesPoint {
   t: number;
   /** Primary series value (null = gap) */
   y: number | null;
-  /** Optional constant reference line (e.g. alarm radius) */
+  /**
+   * Optional constant reference (legacy single ref). Prefer {@link ChartRefLine}
+   * via the chart `refLines` prop when multiple marks are needed.
+   */
   ref?: number | null;
+}
+
+export interface ChartRefLine {
+  /** Y value in the same units as the series */
+  value: number;
+  /** Legend name */
+  name?: string;
+  /** Stroke colour (default alarm red) */
+  color?: string;
+  /** Dash pattern (default "6 4") */
+  dasharray?: string;
+  /** Draw value + unit on the right end of the line */
+  labelOnRight?: boolean;
 }
 
 interface Props {
@@ -20,13 +36,25 @@ interface Props {
   yMin?: number;
   /** Series name for legend */
   seriesName: string;
-  /** Reference line name (optional) */
+  /**
+   * Reference lines (alarm, high mark, …). When provided, used instead of
+   * per-point `ref` / `refName` / `refLabelOnRight`.
+   */
+  refLines?: ChartRefLine[];
+  /** @deprecated Prefer refLines — single ref name from data[].ref */
   refName?: string;
+  /**
+   * @deprecated Prefer refLines — label the single data[].ref on the right
+   */
+  refLabelOnRight?: boolean;
   /** Format y for tooltip / axis */
   formatY?: (v: number) => string;
 }
 
 const PAD = { top: 12, right: 10, bottom: 28, left: 42 };
+/** Extra right padding when any reference line has an end label */
+const PAD_RIGHT_WITH_REF_LABEL = 48;
+const DEFAULT_REF_COLOR = '#e05050';
 
 function niceMax(v: number): number {
   if (!Number.isFinite(v) || v <= 0) return 1;
@@ -43,6 +71,15 @@ function formatTime(t: number): string {
   });
 }
 
+type DrawnRef = {
+  value: number;
+  y: number;
+  name?: string;
+  color: string;
+  dasharray: string;
+  label: string | null;
+};
+
 /**
  * Lightweight SVG line/area chart — no Recharts.
  * Stable memory for long-running dashboards (path strings only).
@@ -54,7 +91,9 @@ function SimpleLineChartInner({
   height = 200,
   yMin,
   seriesName,
+  refLines,
   refName,
+  refLabelOnRight = false,
   formatY = (v) =>
     Number.isInteger(v) ? String(v) : v.toFixed(v < 10 ? 1 : 0),
 }: Props) {
@@ -68,25 +107,50 @@ function SimpleLineChartInner({
   const layout = useMemo(() => {
     const w = 600; // viewBox width; scales via preserveAspectRatio
     const h = height;
-    const innerW = w - PAD.left - PAD.right;
-    const innerH = h - PAD.top - PAD.bottom;
 
     let maxY = 0;
     let minY = yMin ?? Infinity;
-    let hasRef = false;
-    let refY = 0;
+
+    // Resolve reference lines (explicit prop wins; else legacy data[].ref)
+    let resolved: ChartRefLine[] = [];
+    if (refLines && refLines.length > 0) {
+      resolved = refLines.filter(
+        (r) => r != null && Number.isFinite(r.value),
+      );
+    } else {
+      let legacyRef: number | null = null;
+      for (const p of data) {
+        if (p.ref != null && Number.isFinite(p.ref)) {
+          legacyRef = p.ref;
+          break;
+        }
+      }
+      if (legacyRef != null) {
+        resolved = [
+          {
+            value: legacyRef,
+            name: refName,
+            labelOnRight: refLabelOnRight,
+          },
+        ];
+      }
+    }
 
     for (const p of data) {
       if (p.y != null && Number.isFinite(p.y)) {
         if (p.y > maxY) maxY = p.y;
         if (p.y < minY) minY = p.y;
       }
-      if (p.ref != null && Number.isFinite(p.ref)) {
-        hasRef = true;
-        refY = p.ref;
-        if (p.ref > maxY) maxY = p.ref;
-      }
     }
+    for (const r of resolved) {
+      if (r.value > maxY) maxY = r.value;
+      if (r.value < minY) minY = r.value;
+    }
+
+    const anyRightLabel = resolved.some((r) => r.labelOnRight);
+    const padRight = anyRightLabel ? PAD_RIGHT_WITH_REF_LABEL : PAD.right;
+    const innerW = w - PAD.left - padRight;
+    const innerH = h - PAD.top - PAD.bottom;
 
     if (yMin != null) minY = yMin;
     else if (!Number.isFinite(minY)) minY = 0;
@@ -112,20 +176,23 @@ function SimpleLineChartInner({
     const flush = () => {
       if (seg.length === 0) return;
       const dLine = seg
-        .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
+        .map(
+          (p, i) =>
+            `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`,
+        )
         .join(' ');
       lineParts.push(dLine);
       const baseY = yAt(minY);
       const dArea =
         dLine +
-        ` L${seg[seg.length - 1].x.toFixed(1)},${baseY.toFixed(1)}` +
-        ` L${seg[0].x.toFixed(1)},${baseY.toFixed(1)} Z`;
+        ` L${seg[seg.length - 1]!.x.toFixed(1)},${baseY.toFixed(1)}` +
+        ` L${seg[0]!.x.toFixed(1)},${baseY.toFixed(1)} Z`;
       areaParts.push(dArea);
       seg = [];
     };
 
     for (let i = 0; i < n; i++) {
-      const v = data[i].y;
+      const v = data[i]!.y;
       if (v == null || !Number.isFinite(v)) {
         flush();
         continue;
@@ -147,29 +214,47 @@ function SimpleLineChartInner({
       const steps = Math.min(4, n - 1);
       for (let i = 0; i <= steps; i++) {
         const idx = steps === 0 ? 0 : Math.round((i * (n - 1)) / steps);
-        xLabels.push({ x: xAt(idx), label: formatTime(data[idx].t) });
+        xLabels.push({ x: xAt(idx), label: formatTime(data[idx]!.t) });
       }
     }
 
-    const refLineY = hasRef ? yAt(refY) : null;
+    const drawnRefs: DrawnRef[] = resolved.map((r) => ({
+      value: r.value,
+      y: yAt(r.value),
+      name: r.name,
+      color: r.color ?? DEFAULT_REF_COLOR,
+      dasharray: r.dasharray ?? '6 4',
+      label: r.labelOnRight
+        ? `${formatY(r.value)} ${unitLabel}`.trim()
+        : null,
+    }));
 
     return {
       w,
       h,
       innerW,
       innerH,
+      padRight,
       lineParts,
       areaParts,
       ticks,
       xLabels,
       xAt,
       yAt,
-      refLineY,
-      hasRef,
+      drawnRefs,
       minY,
       maxY,
     };
-  }, [data, height, yMin, formatY]);
+  }, [
+    data,
+    height,
+    yMin,
+    formatY,
+    unitLabel,
+    refLines,
+    refName,
+    refLabelOnRight,
+  ]);
 
   const onMove = (e: MouseEvent<SVGSVGElement>) => {
     if (data.length === 0) return;
@@ -187,14 +272,14 @@ function SimpleLineChartInner({
         best = i;
       }
     }
-    if (data[best].y == null) {
+    if (data[best]!.y == null) {
       setHover(null);
       return;
     }
     setHover({
       i: best,
       x: layout.xAt(best),
-      y: layout.yAt(data[best].y!),
+      y: layout.yAt(data[best]!.y!),
     });
   };
 
@@ -272,19 +357,32 @@ function SimpleLineChartInner({
           />
         ))}
 
-        {/* Reference (alarm) line */}
-        {layout.refLineY != null && (
-          <line
-            x1={PAD.left}
-            x2={PAD.left + layout.innerW}
-            y1={layout.refLineY}
-            y2={layout.refLineY}
-            stroke="#e05050"
-            strokeWidth={1.5}
-            strokeDasharray="6 4"
-            vectorEffect="non-scaling-stroke"
-          />
-        )}
+        {/* Reference lines + optional right labels */}
+        {layout.drawnRefs.map((r, i) => (
+          <g key={`ref-${i}`} className="simple-chart-ref">
+            <line
+              x1={PAD.left}
+              x2={PAD.left + layout.innerW}
+              y1={r.y}
+              y2={r.y}
+              stroke={r.color}
+              strokeWidth={1.5}
+              strokeDasharray={r.dasharray}
+              vectorEffect="non-scaling-stroke"
+            />
+            {r.label && (
+              <text
+                x={PAD.left + layout.innerW + 4}
+                y={r.y + 3.5}
+                textAnchor="start"
+                className="simple-chart-ref-label"
+                fill={r.color}
+              >
+                {r.label}
+              </text>
+            )}
+          </g>
+        ))}
 
         {/* Hover crosshair */}
         {hover && (
@@ -315,15 +413,23 @@ function SimpleLineChartInner({
           <i style={{ background: color }} />
           {seriesName} ({unitLabel})
         </span>
-        {layout.hasRef && refName && (
-          <span className="simple-chart-legend-item">
-            <i className="ref" />
-            {refName} ({unitLabel})
-          </span>
+        {layout.drawnRefs.map((r, i) =>
+          r.name ? (
+            <span key={`leg-${i}`} className="simple-chart-legend-item">
+              <i
+                className="ref"
+                style={{
+                  borderTopColor: r.color,
+                  background: 'transparent',
+                }}
+              />
+              {r.name} ({unitLabel})
+            </span>
+          ) : null,
         )}
         {hover && data[hover.i]?.y != null && (
           <span className="simple-chart-hover">
-            {formatTime(data[hover.i].t)} · {formatY(data[hover.i].y!)}{' '}
+            {formatTime(data[hover.i]!.t)} · {formatY(data[hover.i]!.y!)}{' '}
             {unitLabel}
           </span>
         )}

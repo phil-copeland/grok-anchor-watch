@@ -16,6 +16,8 @@ interface Props {
   showBoatFollow: boolean;
   /** Watch mode on/off (alarms + banners) */
   watchEnabled: boolean;
+  /** Clear charts / session highs for a new anchorage */
+  onReset: () => void;
   onHistoryRange: (m: HistoryRangeMinutes) => void;
   onAlarmRadius: (m: number) => void;
   onFollowBoat: (follow: boolean) => void;
@@ -36,6 +38,7 @@ export function MainControls({
   followBoat,
   showBoatFollow,
   watchEnabled,
+  onReset,
   onHistoryRange,
   onAlarmRadius,
   onFollowBoat,
@@ -91,6 +94,15 @@ export function MainControls({
               {watchEnabled ? 'Watch on' : 'Watch off'}
             </span>
           </label>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm reset-data-btn"
+            onClick={onReset}
+            title="Clear history, charts, and session highs for a new anchorage"
+            aria-label="Reset data for new location"
+          >
+            Reset
+          </button>
           <input
             type="range"
             min={10}

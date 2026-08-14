@@ -72,6 +72,8 @@ async function pushOnce() {
     distanceM: vessel.distanceM ?? null,
     windSpeedMs: vessel.windSpeedMs ?? null,
     bearingTrueRad: vessel.bearingTrueRad ?? null,
+    headingTrueRad: vessel.headingTrueRad ?? null,
+    windDirectionRad: vessel.windDirectionRad ?? null,
   };
   const url = `${CLOUD_URL}/api/v1/ingest`;
   try {

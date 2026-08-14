@@ -43,6 +43,8 @@ function buildPayload(
     distanceM: vessel.distanceM,
     windSpeedMs: vessel.windSpeedMs,
     bearingTrueRad: vessel.bearingTrueRad,
+    headingTrueRad: vessel.headingTrueRad,
+    windDirectionRad: vessel.windDirectionRad,
   };
   return JSON.stringify({ vessel, sample });
 }

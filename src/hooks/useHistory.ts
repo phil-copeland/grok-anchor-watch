@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { resolveMagneticWindDirection } from '../geo/displayWind';
 import type { HistoryPoint, HistoryRangeMinutes, VesselData } from '../types';
 
 const HISTORY_KEY = 'anchor-watch-history-v2';
@@ -127,11 +128,16 @@ export function useHistory(
       const d = dataRef.current;
       if (!d.updatedAt) return;
       const now = Date.now();
+      // Store magnetic TWD when we can convert — matches live chart / display
+      const magWind = resolveMagneticWindDirection(d);
       const point: HistoryPoint = {
         t: now,
         distanceM: d.distanceM,
         windSpeedMs: d.windSpeedMs,
         bearingTrueRad: d.bearingTrueRad,
+        headingTrueRad: d.headingTrueRad,
+        windDirectionRad:
+          magWind.source === 'angleApparent' ? null : magWind.rad,
       };
 
       setLocalHistory((prev) => {

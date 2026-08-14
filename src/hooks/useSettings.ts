@@ -79,6 +79,13 @@ function migrate(raw: Partial<AppSettings> & { demoMode?: boolean }): AppSetting
     base.dataSource = 'demo';
   }
   if (!base.dataSource) base.dataSource = 'signalk';
+  // Yaw trailing window (minutes) — default 2
+  const ywm = Number(base.yawWindowMinutes);
+  base.yawWindowMinutes =
+    Number.isFinite(ywm) && ywm >= 1 ? Math.min(30, Math.round(ywm)) : 2;
+  const ycs = Number(base.yawChartSwings);
+  base.yawChartSwings =
+    Number.isFinite(ycs) && ycs >= 3 ? Math.min(15, Math.round(ycs)) : 7;
   return base as AppSettings;
 }
 

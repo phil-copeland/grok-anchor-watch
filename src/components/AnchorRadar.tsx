@@ -12,6 +12,25 @@ interface Props {
   /** Position samples for heat density (already windowed) */
   history: HistoryPoint[];
   maxScaleM?: number;
+  /** Active / next waypoint name (shown at centre) */
+  waypointName?: string | null;
+  /** Corner readouts (SailSteer-style glass cards) */
+  distanceLabel?: string;
+  distanceSub?: string | null;
+  /** Accent for distance value when near/over alarm */
+  distanceAccent?: 'default' | 'ok' | 'warn' | 'alarm';
+  /** Session high distance (peak since reset / connect) */
+  highDistanceLabel?: string;
+  highDistanceSub?: string | null;
+  bearingLabel?: string;
+  bearingSub?: string | null;
+}
+
+/** Fit long waypoint names inside the centre label */
+function truncateLabel(name: string, max = 16): string {
+  const t = name.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, max - 1)}…`;
 }
 
 const GRID = 28;
@@ -83,6 +102,14 @@ function AnchorRadarInner({
   watchEnabled = true,
   history,
   maxScaleM,
+  waypointName = null,
+  distanceLabel,
+  distanceSub,
+  distanceAccent = 'default',
+  highDistanceLabel,
+  highDistanceSub,
+  bearingLabel,
+  bearingSub,
 }: Props) {
   const scale = Math.max(
     maxScaleM ?? alarmRadiusM * 1.35,
@@ -165,6 +192,12 @@ function AnchorRadarInner({
     alarmRadiusM > 0 &&
     distanceM > alarmRadiusM;
 
+  const centreLabel = waypointName ? truncateLabel(waypointName) : null;
+  // ~5.6px per char at 9.5px font + horizontal padding
+  const labelW = centreLabel
+    ? Math.min(96, Math.max(36, centreLabel.length * 5.6 + 12))
+    : 0;
+
   // Recent trail (last ~40 points) for motion path
   const trail = useMemo(() => {
     const pts = history
@@ -177,13 +210,77 @@ function AnchorRadarInner({
 
   return (
     <div className={`radar-wrap ${over ? 'radar-alarm' : ''}`}>
-      <div className="radar-svg-host">
-      <svg
-        className="radar-svg"
-        viewBox={`0 0 ${size} ${size}`}
-        role="img"
-        aria-label="Anchor radar with position heatmap"
-      >
+      <div className="radar-frame">
+        {distanceLabel != null && (
+          <div
+            className={`radar-quad radar-quad-dist accent-${distanceAccent} info-tip`}
+            data-tip={[
+              `Distance to anchor: ${distanceLabel}`,
+              distanceSub,
+              waypointName ? `Waypoint: ${waypointName}` : null,
+              over
+                ? 'Status: OUTSIDE swing circle (alarm radius).'
+                : distanceM != null
+                  ? 'Status: inside swing circle.'
+                  : 'Set a waypoint / drop anchor in the plotter.',
+            ]
+              .filter(Boolean)
+              .join('\n')}
+            title={[
+              `Distance to anchor: ${distanceLabel}`,
+              distanceSub,
+              waypointName ? `Waypoint: ${waypointName}` : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            tabIndex={0}
+          >
+            <span className="radar-quad-label">Distance</span>
+            <span className="radar-quad-value">{distanceLabel}</span>
+            {distanceSub ? (
+              <span className="radar-quad-sub">{distanceSub}</span>
+            ) : null}
+          </div>
+        )}
+        {highDistanceLabel != null && (
+          <div
+            className="radar-quad radar-quad-high info-tip"
+            data-tip={[
+              `Session high distance: ${highDistanceLabel}`,
+              highDistanceSub,
+              'Same high used for “new high distance” announce.',
+              'Updates after a new peak holds ~1 s (and exceeds prior high by ≥0.2 m).',
+              'Resets with session reset or data-source change.',
+            ]
+              .filter(Boolean)
+              .join('\n')}
+            title={[
+              `Session high distance: ${highDistanceLabel}`,
+              highDistanceSub,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            tabIndex={0}
+          >
+            <span className="radar-quad-label">High</span>
+            <span className="radar-quad-value">{highDistanceLabel}</span>
+            {highDistanceSub ? (
+              <span className="radar-quad-sub">{highDistanceSub}</span>
+            ) : null}
+          </div>
+        )}
+        <div className="radar-stage">
+          <div className="radar-svg-host">
+            <svg
+              className="radar-svg"
+              viewBox={`0 0 ${size} ${size}`}
+              role="img"
+              aria-label={
+                waypointName
+                  ? `Anchor radar for ${waypointName}, with position heatmap`
+                  : 'Anchor radar with position heatmap'
+              }
+            >
         <defs>
           <radialGradient id="sea" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#0d3a4a" />
@@ -285,12 +382,35 @@ function AnchorRadarInner({
           />
         )}
 
-        {/* Anchor at centre */}
-        <g transform={`translate(${cx}, ${cy})`}>
+        {/* Anchor + next waypoint name at centre */}
+        <g transform={`translate(${cx}, ${cy})`} className="radar-centre">
           <circle r={10} fill="#0a2028" stroke="#c9a227" strokeWidth={1.5} />
           <text y={5} textAnchor="middle" fontSize="12" fill="#c9a227" aria-hidden>
             ⚓
           </text>
+          {centreLabel && (
+            <g className="radar-waypoint-label" aria-hidden>
+              {/* Readable pill over heatmap */}
+              <rect
+                x={-labelW / 2}
+                y={12}
+                width={labelW}
+                height={16}
+                rx={4}
+                fill="rgba(6, 18, 24, 0.82)"
+                stroke="rgba(201, 162, 39, 0.35)"
+                strokeWidth={0.75}
+              />
+              <text
+                y={23.5}
+                textAnchor="middle"
+                className="radar-waypoint-text"
+                fill="#e8d48a"
+              >
+                {centreLabel}
+              </text>
+            </g>
+          )}
         </g>
 
         {/* Boat */}
@@ -302,7 +422,35 @@ function AnchorRadarInner({
             strokeWidth={1}
           />
         </g>
-      </svg>
+            </svg>
+          </div>
+        </div>
+        {bearingLabel != null && (
+          <div
+            className="radar-quad radar-quad-brg info-tip"
+            data-tip={[
+              `Bearing to anchor: ${bearingLabel}`,
+              bearingSub ?? null,
+              'Direction from boat to anchor (preferred magnetic).',
+              'Swing circle is north-up; boat icon uses heading when available.',
+            ]
+              .filter(Boolean)
+              .join('\n')}
+            title={[
+              `Bearing to anchor: ${bearingLabel}`,
+              bearingSub,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+            tabIndex={0}
+          >
+            <span className="radar-quad-label">Bearing</span>
+            <span className="radar-quad-value">{bearingLabel}</span>
+            {bearingSub ? (
+              <span className="radar-quad-sub">{bearingSub}</span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <div className="radar-legend">

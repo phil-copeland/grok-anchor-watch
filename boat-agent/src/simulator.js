@@ -87,11 +87,18 @@ export class DemoSimulator {
       windSpeedMs,
       windSpeedSource: 'true',
       windDirectionRad: windDir,
-      windDirectionSource: 'directionTrue',
+      windDirectionSource: 'directionMagnetic',
       latitude: lat,
       longitude: lon,
-      headingTrueRad:
-        bearingFromAnchor + Math.PI + Math.sin(elapsed / 20) * 0.1,
+      headingTrueRad: (() => {
+        const raw =
+          bearingFromAnchor + Math.PI + Math.sin(elapsed / 20) * 0.1;
+        const twoPi = Math.PI * 2;
+        let h = raw % twoPi;
+        if (h < 0) h += twoPi;
+        return h;
+      })(),
+      magneticVariationRad: (23 * Math.PI) / 180,
       speedOverGroundMs: 0.15 + Math.abs(Math.sin(elapsed / 25)) * 0.3,
       maxRadiusM: this.maxRadiusM,
       alarmRadiusM: this.maxRadiusM,

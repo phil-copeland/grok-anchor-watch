@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { cloudHostLabel } from '../cloud/hostLabel';
 import type { ConnectionStatus } from '../types';
 import type { CloudPublishState } from '../hooks/useCloudPublisher';
 
@@ -8,6 +9,8 @@ interface Props {
   dataSource: 'signalk' | 'demo' | 'cloud';
   boatName?: string | null;
   publish?: CloudPublishState;
+  /** Cloud relay base URL — used to label Fly vs Suga in the header */
+  cloudUrl?: string;
   /** Cloud watch: last boat ingest time from server meta (ms) */
   lastBoatIngestAt?: number | null;
   onOpenSettings: () => void;
@@ -47,6 +50,7 @@ export function ConnectionBar({
   dataSource,
   boatName,
   publish,
+  cloudUrl,
   lastBoatIngestAt,
   onOpenSettings,
   onReconnect,
@@ -74,6 +78,10 @@ export function ConnectionBar({
 
   const showPublish = dataSource !== 'cloud' && publish != null;
   const showBoatAge = dataSource === 'cloud';
+  const hostLabel = cloudHostLabel(
+    cloudUrl || (dataSource === 'cloud' ? window.location.origin : ''),
+  );
+  const hostSuffix = hostLabel ? ` · ${hostLabel}` : '';
 
   return (
     <header className="top-bar">
@@ -104,8 +112,12 @@ export function ConnectionBar({
             title={
               publish!.lastError ||
               (publish!.lastSentAt
-                ? `Last successful send ${formatClock(publish!.lastSentAt)}`
-                : 'Cloud publish')
+                ? `Last successful send ${formatClock(publish!.lastSentAt)}${
+                    hostLabel ? ` via ${hostLabel}` : ''
+                  }`
+                : hostLabel
+                  ? `Cloud publish · ${hostLabel}`
+                  : 'Cloud publish')
             }
           >
             <span className="status-dot" />
@@ -117,6 +129,7 @@ export function ConnectionBar({
             {publish!.status === 'ok' && publish!.lastSentAt && (
               <span>
                 Sent {formatAge(publish!.lastSentAt, now)}
+                {hostSuffix}
                 <span className="status-msg">
                   {formatClock(publish!.lastSentAt)}
                 </span>
@@ -128,6 +141,7 @@ export function ConnectionBar({
                 {publish!.lastSentAt
                   ? ` · last ok ${formatAge(publish!.lastSentAt, now)}`
                   : ''}
+                {hostSuffix}
               </span>
             )}
           </div>
@@ -144,20 +158,25 @@ export function ConnectionBar({
             }`}
             title={
               lastBoatIngestAt
-                ? `Last boat update ${formatClock(lastBoatIngestAt)}`
-                : 'Waiting for boat telemetry'
+                ? `Last boat update ${formatClock(lastBoatIngestAt)}${
+                    hostLabel ? ` via ${hostLabel}` : ''
+                  }`
+                : hostLabel
+                  ? `Waiting for boat telemetry · ${hostLabel}`
+                  : 'Waiting for boat telemetry'
             }
           >
             <span className="status-dot" />
             {lastBoatIngestAt ? (
               <span>
                 Boat {formatAge(lastBoatIngestAt, now)}
+                {hostSuffix}
                 <span className="status-msg">
                   {formatClock(lastBoatIngestAt)}
                 </span>
               </span>
             ) : (
-              <span>Boat: no data yet</span>
+              <span>Boat: no data yet{hostSuffix}</span>
             )}
           </div>
         )}

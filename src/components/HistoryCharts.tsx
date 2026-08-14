@@ -5,7 +5,11 @@ import {
   type HistoryRangeMinutes,
 } from '../types';
 import { mToFt, msToKnots } from '../units';
-import { SimpleLineChart, type ChartSeriesPoint } from './SimpleLineChart';
+import {
+  SimpleLineChart,
+  type ChartRefLine,
+  type ChartSeriesPoint,
+} from './SimpleLineChart';
 
 interface Props {
   history: HistoryPoint[];
@@ -13,8 +17,12 @@ interface Props {
   alarmRadiusM: number;
   distanceUnit: 'm' | 'ft' | 'nm';
   windUnit: 'kn' | 'm/s' | 'km/h' | 'mph';
-  /** Session high wind in display units — red reference line on wind chart */
+  /** Session high wind in display units — reference line on wind chart */
   windHighMark?: number | null;
+  /** Session high distance in metres — gold reference line on distance chart */
+  distanceHighMarkM?: number | null;
+  /** When false, only distance history is shown (default true) */
+  showWindChart?: boolean;
   onRangeChange: (m: HistoryRangeMinutes) => void;
   onClear: () => void;
   clearDisabled?: boolean;
@@ -66,11 +74,17 @@ function HistoryChartsInner({
   distanceUnit,
   windUnit,
   windHighMark = null,
+  distanceHighMarkM = null,
+  showWindChart = true,
   onRangeChange,
   onClear,
   clearDisabled,
 }: Props) {
   const alarmDisplay = toDist(alarmRadiusM, distanceUnit) ?? 0;
+  const distanceHighDisplay =
+    distanceHighMarkM != null && Number.isFinite(distanceHighMarkM)
+      ? toDist(distanceHighMarkM, distanceUnit)
+      : null;
   const windHighDisplay =
     windHighMark != null && Number.isFinite(windHighMark)
       ? windHighMark
@@ -81,15 +95,48 @@ function HistoryChartsInner({
     const distanceSeries: ChartSeriesPoint[] = sampled.map((p) => ({
       t: p.t,
       y: toDist(p.distanceM, distanceUnit),
-      ref: alarmDisplay,
     }));
-    const windSeries: ChartSeriesPoint[] = sampled.map((p) => ({
-      t: p.t,
-      y: toWind(p.windSpeedMs, windUnit),
-      ref: windHighDisplay,
-    }));
+    const windSeries: ChartSeriesPoint[] = showWindChart
+      ? sampled.map((p) => ({
+          t: p.t,
+          y: toWind(p.windSpeedMs, windUnit),
+        }))
+      : [];
     return { distanceSeries, windSeries };
-  }, [history, distanceUnit, windUnit, alarmDisplay, windHighDisplay]);
+  }, [history, distanceUnit, windUnit, showWindChart]);
+
+  const distanceRefLines = useMemo((): ChartRefLine[] => {
+    const lines: ChartRefLine[] = [
+      {
+        value: alarmDisplay,
+        name: 'Alarm',
+        color: '#e05050',
+        labelOnRight: true,
+      },
+    ];
+    if (distanceHighDisplay != null && Number.isFinite(distanceHighDisplay)) {
+      lines.push({
+        value: distanceHighDisplay,
+        name: 'High',
+        color: '#e8c86a',
+        dasharray: '4 3',
+        labelOnRight: true,
+      });
+    }
+    return lines;
+  }, [alarmDisplay, distanceHighDisplay]);
+
+  const windRefLines = useMemo((): ChartRefLine[] => {
+    if (windHighDisplay == null || !Number.isFinite(windHighDisplay)) return [];
+    return [
+      {
+        value: windHighDisplay,
+        name: 'High',
+        color: '#e05050',
+        labelOnRight: true,
+      },
+    ];
+  }, [windHighDisplay]);
 
   const distUnitLabel =
     distanceUnit === 'm' ? 'm' : distanceUnit === 'ft' ? 'ft' : 'nm';
@@ -141,11 +188,13 @@ function HistoryChartsInner({
 
       {history.length < 2 ? (
         <p className="empty-history">
-          Collecting samples… history of distance and wind speed will appear
-          here after a few updates.
+          Collecting samples… distance and wind history will appear here after a
+          few updates.
         </p>
       ) : (
-        <div className="charts-grid">
+        <div
+          className={`charts-grid ${showWindChart ? '' : 'charts-grid-single'}`}
+        >
           <div className="chart-card">
             <h3>Distance to anchor ({distUnitLabel})</h3>
             <SimpleLineChart
@@ -153,23 +202,25 @@ function HistoryChartsInner({
               color="#3ecf9a"
               unitLabel={distUnitLabel}
               seriesName="Distance"
-              refName="Alarm"
-              height={200}
+              refLines={distanceRefLines}
+              height={showWindChart ? 200 : 220}
             />
           </div>
 
-          <div className="chart-card">
-            <h3>Wind speed ({windUnitLabel})</h3>
-            <SimpleLineChart
-              data={windSeries}
-              color="#7ec8e8"
-              unitLabel={windUnitLabel}
-              seriesName="Wind"
-              refName="High mark"
-              height={200}
-              yMin={0}
-            />
-          </div>
+          {showWindChart && (
+            <div className="chart-card">
+              <h3>Wind speed ({windUnitLabel})</h3>
+              <SimpleLineChart
+                data={windSeries}
+                color="#7ec8e8"
+                unitLabel={windUnitLabel}
+                seriesName="Wind"
+                refLines={windRefLines}
+                height={200}
+                yMin={0}
+              />
+            </div>
+          )}
         </div>
       )}
     </section>

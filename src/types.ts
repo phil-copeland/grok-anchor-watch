@@ -2,9 +2,9 @@
 export interface VesselData {
   /** Distance to anchor/waypoint, metres */
   distanceM: number | null;
-  /** Bearing to anchor/waypoint, radians true */
+  /** Bearing to anchor/waypoint, radians true (geographic; swing-circle geometry) */
   bearingTrueRad: number | null;
-  /** Bearing magnetic, radians */
+  /** Bearing magnetic, radians — preferred for UI angle displays */
   bearingMagneticRad: number | null;
   /** Depth below transducer (or best available), metres */
   depthM: number | null;
@@ -12,14 +12,34 @@ export interface VesselData {
   /** Wind speed, m/s — prefers true, falls back to apparent */
   windSpeedMs: number | null;
   windSpeedSource: 'true' | 'apparent' | 'overGround' | null;
-  /** Wind direction true north, radians; or apparent angle if only AWA available */
+  /**
+   * Active wind direction for display (magnetic preferred).
+   * Kept for compatibility; prefer magnetic/true fields when both present.
+   */
   windDirectionRad: number | null;
   windDirectionSource: 'directionTrue' | 'directionMagnetic' | 'angleApparent' | null;
+  /** Raw instrument magnetic wind direction (rad), if published */
+  windDirectionMagneticRad?: number | null;
+  /** Raw true wind direction (rad), if published */
+  windDirectionTrueRad?: number | null;
   /** Vessel position */
   latitude: number | null;
   longitude: number | null;
-  /** Heading true, radians */
+  /** Heading radians — magnetic only (from headingMagnetic) */
   headingTrueRad: number | null;
+  /**
+   * Magnetic variation (declination) from Signal K, radians, east-positive.
+   * True = Magnetic + variation. Null if not published on the network.
+   */
+  magneticVariationRad: number | null;
+  /** Which Signal K path populated heading */
+  headingSource?: 'true' | 'magnetic' | null;
+  /** Matched device / $source label for heading (e.g. Precision-9) */
+  headingDevice?: string | null;
+  /** Heading magnetic sources observed (for filter diagnostics) */
+  headingSourcesSeen?: string[] | null;
+  /** Most recent raw Signal K source identity for headingMagnetic (debug) */
+  headingSourceLast?: string | null;
   /** SOG m/s */
   speedOverGroundMs: number | null;
   /** Anchor alarm radius from Signal K, metres */
@@ -57,6 +77,10 @@ export interface HistoryPoint {
   windSpeedMs: number | null;
   /** Bearing boat → anchor (rad true) — for swing-circle heatmap */
   bearingTrueRad: number | null;
+  /** Vessel heading true (rad) — for yaw amplitude / period */
+  headingTrueRad?: number | null;
+  /** Wind direction (rad) — for TWD overlay on yaw chart */
+  windDirectionRad?: number | null;
 }
 
 /** Display window for charts + heatmap (minutes). */
@@ -125,7 +149,7 @@ export interface AppSettings {
   audioAlarm: boolean;
   /**
    * Announce session high wind levels (speech + banner) when a new whole-unit
-   * high is held for over 1 second. Works on local and cloud/remote UI.
+   * high is held for over 3 seconds. Works on local and cloud/remote UI.
    */
   windHighAnnounce: boolean;
   /**
@@ -144,6 +168,29 @@ export interface AppSettings {
    * 0 = no floor.
    */
   distanceHighAnnounceMinM: number;
+  /**
+   * Trailing window (minutes) for yaw amplitude, period, and Yaw Watch chart.
+   * Default 2.
+   */
+  yawWindowMinutes: number;
+  /**
+   * @deprecated Metrics use yawWindowMinutes. Kept for localStorage migration.
+   */
+  yawOscillations?: number;
+  /**
+   * How many half-swings (peak↔trough) to show on the yaw chart (3–15).
+   */
+  yawChartSwings: number;
+  /**
+   * Only accept navigation.headingMagnetic from sources whose label/$source
+   * contains this text (case-insensitive), e.g. "Precision-9".
+   * Empty = accept any magnetic heading source.
+   */
+  headingMagneticSourceFilter: string;
+  /**
+   * Show discovered headingMagnetic sources in Settings (and related debug UI).
+   */
+  debugHeadingSources: boolean;
   /**
    * @deprecated use dataSource === 'demo'
    * Kept for migration from older localStorage
@@ -175,6 +222,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   windHighAnnounceMinMs: 0,
   distanceHighAnnounce: true,
   distanceHighAnnounceMinM: 0,
+  yawWindowMinutes: 2,
+  yawChartSwings: 7,
+  /** Empty until user sets a filter (e.g. Precision-9) in Settings */
+  headingMagneticSourceFilter: '',
+  debugHeadingSources: false,
 };
 
 export const EMPTY_VESSEL: VesselData = {
@@ -187,9 +239,16 @@ export const EMPTY_VESSEL: VesselData = {
   windSpeedSource: null,
   windDirectionRad: null,
   windDirectionSource: null,
+  windDirectionMagneticRad: null,
+  windDirectionTrueRad: null,
   latitude: null,
   longitude: null,
   headingTrueRad: null,
+  magneticVariationRad: null,
+  headingSource: null,
+  headingDevice: null,
+  headingSourcesSeen: null,
+  headingSourceLast: null,
   speedOverGroundMs: null,
   maxRadiusM: null,
   alarmRadiusM: null,

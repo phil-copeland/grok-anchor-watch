@@ -58,65 +58,54 @@ fly deploy -a breeze-anchor-watch
 
 ## 3. Suga.app (trial host alongside Fly)
 
-Suga is early-access PaaS: long-running containers, HTTPS, WebSockets. Docs: [docs.suga.app](https://docs.suga.app). Dashboard: [dashboard.suga.app](https://dashboard.suga.app/signup).
+Suga is early-access PaaS: long-running containers, HTTPS, WebSockets. Docs: [docs.suga.app](https://docs.suga.app). Dashboard: [dashboard.suga.app](https://dashboard.suga.app).
 
-### Recommended: Build from GitHub
+The hosted MCP server is the intended way to shape the environment from this repo. It can create the project, container, public HTTPS port, env vars, and secret slots. It **cannot** apply, delete a project/environment, or read a secret value back. You review the draft in the dashboard and click **Deploy Changes** yourself.
 
-This repo is not required to leave Fly; Suga just needs a Git remote it can build.
+MCP endpoint: `https://dashboard.suga.app/api/mcp`  
+Docs: [Connect an AI Agent (MCP)](https://docs.suga.app/reference/mcp).
 
-1. **Put the project on GitHub** (once):
+### Recommended: Grok + Suga MCP
+
+1. **Add the server** (once; already in this repo’s `.grok/config.toml` and can also live in `~/.grok/config.toml`):
 
    ```powershell
-   cd C:\Users\prcop\grok\development\grok-anchor-watch
-   git init
-   git add .
-   git commit -m "Anchor Watch cloud server + UI"
-   # Create empty repo on GitHub, then:
-   git remote add origin https://github.com/YOUR_USER/grok-anchor-watch.git
-   git push -u origin main
+   grok mcp add --transport http suga https://dashboard.suga.app/api/mcp
    ```
 
-2. **Sign up** at [dashboard.suga.app](https://dashboard.suga.app/signup)  
-   - Prefer region **Sydney** if you want AU latency (org region is chosen at setup).
+2. **Authenticate** in Grok: `/mcps` → select **suga** → press `i`. Approve the OAuth consent screen and pick the org the agent may reach.
 
-3. **New project** → **Add Service** → **Container**.
+3. **Install the Suga GitHub App** from the dashboard (the agent cannot start that install). Grant it `phil-copeland/grok-anchor-watch`.
 
-4. **Image → Build from GitHub**
-   - Install the Suga GitHub App for that repo.
-   - Branch: `main` (or whatever you push).
-   - **Dockerfile path:** `server/Dockerfile`  
-     (important — not root `Dockerfile`)
-   - **Build context:** `.` (repo root)
+4. Ask Grok to rebuild the Anchor Watch environment. Target spec:
 
-5. **Private / public networking**
-   - App listens on **8787** (`PORT` default in the image).
-   - **Public Networking → Enable Suga Domain (HTTPS)** → target port **8787**.
-   - Copy the generated URL, e.g.  
-     `https://….production….suga-….com`  
-     → put it in `CLOUD_URL_SUGA=` in `fly-secrets.local.env`.
-
-6. **Environment variables** (Config → Environment Variables) — mark tokens Sensitive:
-
-   | Key | Value |
-   |-----|--------|
+   | Setting | Value |
+   |---------|--------|
+   | Service | Container, **1 replica** (in-memory store — do not scale out) |
+   | Image | Build from GitHub `phil-copeland/grok-anchor-watch`, branch `main` |
+   | Dockerfile | `server/Dockerfile` (not a root Dockerfile) |
+   | Build context | `.` (repo root) |
+   | Listen / public HTTPS | port **8787** |
+   | Resources | start small (e.g. 0.25 CPU / 512 MiB if the plan allows) |
    | `PORT` | `8787` |
-   | `BOAT_TOKEN` | same as Fly |
-   | `VIEW_TOKEN` | same as Fly |
-   | `BOAT_NAME` | `Breeze` |
    | `NODE_ENV` | `production` |
+   | `BOAT_NAME` | `Breeze` |
+   | `BOAT_TOKEN` / `VIEW_TOKEN` | **secrets**, same values as Fly |
 
-7. **Resources**
-   - **Replicas: 1** (in-memory store — do not scale out).
-   - Start small (e.g. 0.25 CPU / 512 MiB if plan allows). Free tier is tight but enough to try.
+5. Open the deeplink the agent returns, review the canvas diff, click **Deploy Changes**.
 
-8. **Deploy Changes** in the Suga UI.
+6. Copy the generated HTTPS URL into `CLOUD_URL_SUGA=` in `fly-secrets.local.env`.
 
-9. **Smoke test**
+7. **Smoke test**
 
    ```text
    https://YOUR-SUGA-URL/api/health
    → { "ok": true, "service": "anchor-watch-server", … }
    ```
+
+### Alternative: dashboard click-ops
+
+Same spec as the table above: **New project** → **Add Service** → **Container** → **Build from GitHub** → public HTTPS on **8787** → env/secrets → **Replicas: 1** → **Deploy Changes**.
 
 ### Alternative without GitHub: pre-built image
 
@@ -126,7 +115,7 @@ docker build -f server/Dockerfile --platform linux/amd64 -t YOUR_DOCKERHUB_USER/
 docker push YOUR_DOCKERHUB_USER/anchor-watch:latest
 ```
 
-On Suga: **Pre-built image** = `YOUR_DOCKERHUB_USER/anchor-watch:latest`, port **8787**, same env vars as above.
+On Suga (MCP or dashboard): **Pre-built image** = `YOUR_DOCKERHUB_USER/anchor-watch:latest`, port **8787**, same env vars as above.
 
 ### Suga notes for this app
 

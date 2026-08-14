@@ -10,7 +10,7 @@ import {
 export type { WindUnit };
 
 /** Wind must hold a new high level for this long before we announce. */
-const HOLD_MS = 1000;
+const HOLD_MS = 3000;
 
 /** Grace after connect / source change so the first sample isn't spoken immediately. */
 const WARMUP_MS = 2500;
@@ -66,7 +66,7 @@ export interface WindHighAnnouncement {
 
 /**
  * Session high wind levels: when wind reaches a new whole-unit high and holds
- * it for over 1 second, speak + surface a short toast.
+ * it for over 3 seconds, speak + surface a short toast.
  * Also tracks continuous session peak for the wind chart high-mark line.
  * Runs on any live feed including cloud/remote phone UI.
  *

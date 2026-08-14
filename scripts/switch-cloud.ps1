@@ -75,7 +75,8 @@ if ($Target -eq 'suga') {
     Write-Error @"
 CLOUD_URL_SUGA is not set in $SecretsFile.
 
-1. Deploy the container on https://dashboard.suga.app
+1. Connect Suga MCP in Grok (/mcps → suga → i) and ask it to rebuild the environment
+   or deploy the container on https://dashboard.suga.app
 2. Enable public HTTPS (port 8787)
 3. Copy the generated https://… URL into CLOUD_URL_SUGA=
 4. Re-run: .\scripts\switch-cloud.ps1 -Target suga

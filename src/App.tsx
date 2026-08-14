@@ -1,29 +1,30 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlarmBanner } from './components/AlarmBanner';
 import { AnchorRadar } from './components/AnchorRadar';
 import { ConnectionBar } from './components/ConnectionBar';
 import { HistoryCharts } from './components/HistoryCharts';
 import { MainControls } from './components/MainControls';
-import { MetricCard } from './components/MetricCard';
+import { SailSteer } from './components/SailSteer';
 import { SettingsPanel } from './components/SettingsPanel';
-import { WindRose } from './components/WindRose';
 import { HighAnnounceBanner } from './components/HighAnnounceBanner';
 import { useAlarm } from './hooks/useAlarm';
 import { useCloudPublisher } from './hooks/useCloudPublisher';
 import { useDistanceHighAnnounce } from './hooks/useDistanceHighAnnounce';
 import { useHistory } from './hooks/useHistory';
+import { useMagneticDisplay } from './hooks/useMagneticDisplay';
 import { useSettings } from './hooks/useSettings';
 import { useVesselData } from './hooks/useVesselData';
 import { useWindHighAnnounce } from './hooks/useWindHighAnnounce';
-import type { HistoryRangeMinutes, VesselData } from './types';
 import {
-  formatBearing,
-  formatDepth,
-  formatDistance,
-  formatLatLon,
-  formatWind,
-  msToKnots,
-} from './units';
+  formatYawPeriod,
+  formatYawWindowLabel,
+  useYaw,
+} from './hooks/useYaw';
+import type { HistoryRangeMinutes, VesselData } from './types';
+import { formatBearing, formatDistance, radToDeg } from './units';
+
+/** Outer-ring TWD heatmap window (same idea as wind history, fixed 30 min). */
+const TWD_HEAT_WINDOW_MS = 30 * 60_000;
 
 export default function App() {
   const { settings, setSettings, resetSettings } = useSettings();
@@ -43,7 +44,7 @@ export default function App() {
     status === 'demo' ||
     status === 'cloud' ||
     status === 'stale';
-  const { windowed, clearHistory, isRemote } = useHistory(
+  const { history, windowed, clearHistory, isRemote } = useHistory(
     data,
     settings.historyIntervalMs,
     settings.historyMaxPoints,
@@ -51,6 +52,22 @@ export default function App() {
     settings.historyRangeMinutes,
     cloudHistory,
   );
+  /** Bumped on Reset — clears session highs & yaw for a new anchorage */
+  const [sessionResetKey, setSessionResetKey] = useState(0);
+
+  /** Magnetic display angles — native mag preferred; else true − SK/WMM variation */
+  const mag = useMagneticDisplay(data);
+
+  /** Magnetic heading + TWD stream → yaw metrics & chart (settings window) */
+  const yaw = useYaw(
+    data.headingTrueRad,
+    history,
+    settings.yawWindowMinutes,
+    settings.yawChartSwings,
+    sessionResetKey,
+    mag.windDirectionRad,
+  );
+  const yawWindowLabel = formatYawWindowLabel(settings.yawWindowMinutes);
 
   // Push local instruments + guard radius when enabled in Settings
   const publish = useCloudPublisher(settings, live, liveSinkRef);
@@ -84,8 +101,8 @@ export default function App() {
     settings.watchEnabled,
   );
 
-  // High-water announcements run on every live feed, including cloud/remote phone UI
-  const announceSessionKey = settings.dataSource;
+  // High-water announcements only while Watch is on (and settings allow it)
+  const announceSessionKey = `${settings.dataSource}:${sessionResetKey}`;
   const {
     announcement: windHigh,
     dismiss: dismissWindHigh,
@@ -93,18 +110,21 @@ export default function App() {
   } = useWindHighAnnounce(
     data.windSpeedMs,
     settings.windUnit,
-    live && settings.windHighAnnounce,
+    live && settings.watchEnabled && settings.windHighAnnounce,
     announceSessionKey,
     settings.windHighAnnounceMinMs,
   );
-  const { announcement: distanceHigh, dismiss: dismissDistanceHigh } =
-    useDistanceHighAnnounce(
-      data.distanceM,
-      settings.distanceUnit,
-      live && settings.distanceHighAnnounce,
-      announceSessionKey,
-      settings.distanceHighAnnounceMinM,
-    );
+  const {
+    announcement: distanceHigh,
+    dismiss: dismissDistanceHigh,
+    highMarkM: distanceHighMarkM,
+  } = useDistanceHighAnnounce(
+    data.distanceM,
+    settings.distanceUnit,
+    live && settings.watchEnabled && settings.distanceHighAnnounce,
+    announceSessionKey,
+    settings.distanceHighAnnounceMinM,
+  );
 
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -117,24 +137,6 @@ export default function App() {
     settings.distanceUnit,
     0,
   );
-
-  const windSourceLabel = useMemo(() => {
-    if (!data.windSpeedSource) return null;
-    const map = {
-      true: 'True wind',
-      apparent: 'Apparent wind',
-      overGround: 'Wind over ground',
-    };
-    return map[data.windSpeedSource];
-  }, [data.windSpeedSource]);
-
-  const depthSub = data.depthSource
-    ? data.depthSource === 'belowTransducer'
-      ? 'Below transducer'
-      : data.depthSource === 'belowKeel'
-        ? 'Below keel'
-        : 'Below surface'
-    : undefined;
 
   const distAccent =
     data.distanceM == null
@@ -178,11 +180,74 @@ export default function App() {
     (enabled: boolean) => setSettings({ watchEnabled: enabled }),
     [setSettings],
   );
+  /** Clear history + session highs when moving to a new anchorage */
+  const onResetData = useCallback(() => {
+    const ok = window.confirm(
+      'Clear history, charts, and session highs for a new location?',
+    );
+    if (!ok) return;
+    clearHistory();
+    setSessionResetKey((k) => k + 1);
+  }, [clearHistory]);
 
   const historyRangeLabel =
     settings.historyRangeMinutes >= 60
       ? `${settings.historyRangeMinutes / 60}h`
       : `${settings.historyRangeMinutes}m`;
+
+  const yawPeriodLabel =
+    formatYawPeriod(yaw.periodSec) ??
+    (yaw.sampleCount < 8
+      ? 'Gathering…'
+      : yaw.peakToPeakDeg != null && yaw.peakToPeakDeg < 2
+        ? 'Steady'
+        : 'Peak ↔ peak');
+
+  /** Absolute TWD samples for north-up dial heatmap (from wind history). */
+  const twdHeatSamples = useMemo(() => {
+    const now = Date.now();
+    const cutoff = now - TWD_HEAT_WINDOW_MS;
+    const out: number[] = [];
+    for (const p of history) {
+      if (p.t < cutoff) continue;
+      const w = p.windDirectionRad;
+      if (w == null || !Number.isFinite(w)) continue;
+      out.push(radToDeg(w));
+    }
+    // Live sample so the heat updates between history ticks
+    if (
+      mag.windDirectionRad != null &&
+      mag.windDirectionSource !== 'angleApparent'
+    ) {
+      out.push(radToDeg(mag.windDirectionRad));
+    }
+    return out;
+  }, [history, mag.windDirectionRad, mag.windDirectionSource]);
+
+  /** Absolute heading samples for inner-ring HDG heatmap (from heading history). */
+  const hdgHeatSamples = useMemo(() => {
+    const now = Date.now();
+    const cutoff = now - TWD_HEAT_WINDOW_MS;
+    const out: number[] = [];
+    for (const p of history) {
+      if (p.t < cutoff) continue;
+      const h = p.headingTrueRad;
+      if (h == null || !Number.isFinite(h)) continue;
+      out.push(radToDeg(h));
+    }
+    if (data.headingTrueRad != null && Number.isFinite(data.headingTrueRad)) {
+      out.push(radToDeg(data.headingTrueRad));
+    }
+    return out;
+  }, [history, data.headingTrueRad]);
+
+  // Legacy #/sailsteer bookmarks land on main (Yaw Watch is the right half)
+  useEffect(() => {
+    const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+    if (h === 'sailsteer' || h === 'exp' || h === 'experimental') {
+      window.location.hash = '#/';
+    }
+  }, []);
 
   return (
     <div className={`app ${alarming ? 'app-alarming' : ''}`}>
@@ -192,6 +257,7 @@ export default function App() {
         dataSource={settings.dataSource}
         boatName={boatName}
         publish={publish}
+        cloudUrl={settings.cloudUrl}
         lastBoatIngestAt={lastBoatIngestAt}
         onOpenSettings={openSettings}
         onReconnect={reconnect}
@@ -225,96 +291,83 @@ export default function App() {
       )}
 
       <main className="main">
-        <section className="hero-metrics">
-          <MetricCard
-            label="Distance to anchor"
-            value={distanceLabel}
-            sub={
-              !settings.watchEnabled
-                ? 'Watch off'
-                : data.waypointName
-                  ? data.waypointName
-                  : data.distanceM != null
-                    ? `Alarm at ${radiusLabel}`
-                    : 'Set waypoint / drop anchor in plotter'
-            }
-            accent={distAccent}
-            large
-          />
-          <MetricCard
-            label="Bearing to anchor"
-            value={formatBearing(data.bearingTrueRad)}
-            sub="True"
-            accent="default"
-            large
-          />
-          <MetricCard
-            label="Depth"
-            value={formatDepth(data.depthM, settings.depthUnit)}
-            sub={depthSub}
-            accent="depth"
-            large
-          />
-          <MetricCard
-            label="Wind speed"
-            value={formatWind(data.windSpeedMs, settings.windUnit)}
-            sub={windSourceLabel ?? undefined}
-            accent="wind"
-            large
-          />
-        </section>
-
-        <section className="viz-row">
-          <div className="panel radar-panel">
-            <div className="panel-head">
-              <h2>Swing circle</h2>
-              <span className="muted">Heatmap · last {historyRangeLabel}</span>
+        <section className="viz-row viz-row-main">
+          <div className="viz-col viz-col-left">
+            <div className="panel radar-panel">
+              <div className="panel-head">
+                <h2>Swing circle</h2>
+                <span className="muted">
+                  Heatmap · last {historyRangeLabel}
+                </span>
+              </div>
+              <AnchorRadar
+                distanceM={data.distanceM}
+                bearingTrueRad={data.bearingTrueRad}
+                headingTrueRad={data.headingTrueRad}
+                alarmRadiusM={effectiveAlarmRadius}
+                watchEnabled={settings.watchEnabled}
+                history={windowed}
+                waypointName={data.waypointName}
+                distanceLabel={distanceLabel}
+                distanceSub={
+                  !settings.watchEnabled
+                    ? 'Watch off'
+                    : data.distanceM != null
+                      ? `Alarm ${radiusLabel}`
+                      : 'Set waypoint / drop anchor'
+                }
+                distanceAccent={
+                  distAccent === 'ok' ||
+                  distAccent === 'warn' ||
+                  distAccent === 'alarm'
+                    ? distAccent
+                    : 'default'
+                }
+                highDistanceLabel={
+                  distanceHighMarkM != null
+                    ? formatDistance(distanceHighMarkM, settings.distanceUnit)
+                    : '—'
+                }
+                highDistanceSub="Session high"
+                bearingLabel={formatBearing(mag.bearingRad)}
+                bearingSub={mag.bearingRefLabel}
+              />
             </div>
-            <AnchorRadar
-              distanceM={data.distanceM}
-              bearingTrueRad={data.bearingTrueRad}
-              headingTrueRad={data.headingTrueRad}
-              alarmRadiusM={effectiveAlarmRadius}
-              watchEnabled={settings.watchEnabled}
-              history={windowed}
-            />
           </div>
 
-          <div className="panel wind-panel">
-            <div className="panel-head">
-              <h2>Wind</h2>
-            </div>
-            <div className="wind-panel-body">
-              <WindRose
-                directionRad={data.windDirectionRad}
-                speedLabel={formatWind(data.windSpeedMs, settings.windUnit)}
-                source={
-                  data.windDirectionSource === 'angleApparent'
-                    ? 'Apparent angle (relative to bow)'
-                    : windSourceLabel
-                }
-                isAngleRelative={data.windDirectionSource === 'angleApparent'}
-              />
-              <div className="secondary-metrics">
-                <MetricCard
-                  label="SOG"
-                  value={
-                    data.speedOverGroundMs != null
-                      ? `${msToKnots(data.speedOverGroundMs).toFixed(1)} kn`
-                      : '—'
-                  }
-                />
-                <MetricCard
-                  label="Heading"
-                  value={formatBearing(data.headingTrueRad)}
-                  sub="True"
-                />
-                <MetricCard
-                  label="Position"
-                  value={formatLatLon(data.latitude, data.longitude)}
-                />
+          <div className="viz-col viz-col-right">
+            <section className="panel sailsteer-panel sailsteer-panel-main">
+              <div className="panel-head">
+                <h2>Yaw Watch</h2>
+                <span className="muted">
+                  North-up · magnetic · last {yawWindowLabel} yaw
+                </span>
               </div>
-            </div>
+              <SailSteer
+                headingTrueRad={data.headingTrueRad}
+                windDirectionRad={mag.windDirectionRad}
+                windDirectionSource={mag.windDirectionSource}
+                windSpeedMs={data.windSpeedMs}
+                variationLabel={mag.variationLabel}
+                windConvertedFromTrue={mag.windConvertedFromTrue}
+                windUnit={settings.windUnit}
+                yawPeakToPeakDeg={yaw.peakToPeakDeg}
+                yawPeriodLabel={yawPeriodLabel}
+                yawChartSeries={yaw.chartSeriesTimed}
+                yawChartExtrema={yaw.chartExtremaTimed}
+                twdChartSeries={yaw.chartTwdTimed}
+                twdHeatSamples={twdHeatSamples}
+                hdgHeatSamples={hdgHeatSamples}
+                yawWindowMinutes={settings.yawWindowMinutes}
+                yawChartStatus={
+                  yaw.chartSeriesTimed.length < 2
+                    ? yaw.sampleCount < 8
+                      ? 'Gathering heading…'
+                      : 'Waiting for heading…'
+                    : undefined
+                }
+              />
+            </section>
           </div>
         </section>
 
@@ -325,6 +378,8 @@ export default function App() {
           distanceUnit={settings.distanceUnit}
           windUnit={settings.windUnit}
           windHighMark={windHighMark}
+          distanceHighMarkM={distanceHighMarkM}
+          showWindChart
           onRangeChange={setHistoryRange}
           onClear={clearHistory}
           clearDisabled={isRemote}
@@ -338,6 +393,7 @@ export default function App() {
           followBoat={followBoat}
           showBoatFollow={settings.dataSource === 'cloud'}
           watchEnabled={settings.watchEnabled}
+          onReset={onResetData}
           onHistoryRange={setHistoryRange}
           onAlarmRadius={onAlarmRadius}
           onFollowBoat={onFollowBoat}
@@ -359,6 +415,7 @@ export default function App() {
         onChange={setSettings}
         onClose={closeSettings}
         onReset={resetSettings}
+        headingSourcesSeen={data.headingSourcesSeen}
       />
     </div>
   );

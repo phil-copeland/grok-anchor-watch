@@ -43,6 +43,11 @@ export const SIGNALK_PATHS = {
   position: 'navigation.position',
   headingTrue: 'navigation.headingTrue',
   headingMagnetic: 'navigation.headingMagnetic',
+  /**
+   * Magnetic variation (declination) at current position, radians.
+   * East positive / west negative. True = Magnetic + variation.
+   */
+  magneticVariation: 'navigation.magneticVariation',
   speedOverGround: 'navigation.speedOverGround',
   destinationName: 'navigation.destination.commonName',
 } as const;
@@ -73,6 +78,7 @@ export const SUBSCRIBE_PATHS: string[] = [
   SIGNALK_PATHS.position,
   SIGNALK_PATHS.headingTrue,
   SIGNALK_PATHS.headingMagnetic,
+  SIGNALK_PATHS.magneticVariation,
   SIGNALK_PATHS.speedOverGround,
   SIGNALK_PATHS.destinationName,
 ];
@@ -81,6 +87,8 @@ export interface SignalkDelta {
   context?: string;
   updates?: Array<{
     source?: unknown;
+    /** Dot-path into the full-model sources tree, e.g. can0.35 */
+    $source?: string;
     timestamp?: string;
     values?: Array<{ path: string; value: unknown }>;
     meta?: Array<{ path: string; value: unknown }>;

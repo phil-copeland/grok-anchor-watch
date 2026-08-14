@@ -136,6 +136,8 @@ export class CloudWatchClient {
                 distanceM: vessel.distanceM,
                 windSpeedMs: vessel.windSpeedMs,
                 bearingTrueRad: vessel.bearingTrueRad,
+                headingTrueRad: vessel.headingTrueRad,
+                windDirectionRad: vessel.windDirectionRad,
               },
             ],
             false,

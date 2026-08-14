@@ -7,7 +7,7 @@ const MAX_HISTORY = 3000; // ~4h at 5s
 const RETAIN_MS = 4.5 * 60 * 60 * 1000;
 const STALE_MS = 30_000;
 
-/** @typedef {{ t: number, distanceM: number|null, windSpeedMs: number|null, bearingTrueRad: number|null }} HistoryPoint */
+/** @typedef {{ t: number, distanceM: number|null, windSpeedMs: number|null, bearingTrueRad: number|null, headingTrueRad?: number|null, windDirectionRad?: number|null }} HistoryPoint */
 
 export class BoatStore {
   constructor() {
@@ -40,6 +40,8 @@ export class BoatStore {
             distanceM: vessel.distanceM ?? null,
             windSpeedMs: vessel.windSpeedMs ?? null,
             bearingTrueRad: vessel.bearingTrueRad ?? null,
+            headingTrueRad: vessel.headingTrueRad ?? null,
+            windDirectionRad: vessel.windDirectionRad ?? null,
           }
         : null);
 

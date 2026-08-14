@@ -5,6 +5,8 @@ interface Props {
   speedLabel: string;
   source: string | null;
   isAngleRelative?: boolean;
+  /** Absolute wind directions are magnetic by preference */
+  isMagnetic?: boolean;
 }
 
 /** Simple wind direction indicator (from direction). */
@@ -13,6 +15,7 @@ export function WindRose({
   speedLabel,
   source,
   isAngleRelative,
+  isMagnetic = true,
 }: Props) {
   const deg = directionRad != null ? radToDeg(directionRad) : 0;
   const has = directionRad != null;
@@ -46,7 +49,7 @@ export function WindRose({
           {has
             ? isAngleRelative
               ? `AWA ${Math.round(radToDeg(directionRad!))}°`
-              : `${Math.round(deg).toString().padStart(3, '0')}° ${cardinalFromRad(directionRad)}`
+              : `${Math.round(deg).toString().padStart(3, '0')}° ${cardinalFromRad(directionRad)}${isMagnetic ? ' M' : ' T'}`
             : '—'}
         </div>
         {source && <div className="wind-src">{source}</div>}

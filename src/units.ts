@@ -103,6 +103,37 @@ export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+const TWO_PI = 2 * Math.PI;
+
+/** Normalize heading/bearing to [0, 2π). */
+export function normalizeHeadingRad(rad: number): number {
+  if (!Number.isFinite(rad)) return rad;
+  let x = rad % TWO_PI;
+  if (x < 0) x += TWO_PI;
+  // Guard tiny float negatives after %
+  if (x < 0) x = 0;
+  if (x >= TWO_PI) x = 0;
+  return x;
+}
+
+/**
+ * Shortest signed turn from `from` → `to` in radians, (−π, π].
+ * Handles 0°/360° wrap so small real turns never look like 350° jumps.
+ */
+export function headingDeltaRad(from: number, to: number): number {
+  let d = normalizeHeadingRad(to) - normalizeHeadingRad(from);
+  if (d > Math.PI) d -= TWO_PI;
+  if (d <= -Math.PI) d += TWO_PI;
+  return d;
+}
+
+/** True if value looks like a Signal K heading/bearing in radians (not degrees). */
+export function isPlausibleHeadingRad(rad: number): boolean {
+  if (!Number.isFinite(rad)) return false;
+  // Allow a little over-range before normalize (some stacks send ±π)
+  return Math.abs(rad) <= TWO_PI * 1.5;
+}
+
 export function formatDistance(
   metres: number | null,
   unit: 'm' | 'ft' | 'nm',

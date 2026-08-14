@@ -16,6 +16,7 @@
     "cloud:local": "npm run build && npm --prefix server start"
   },
   "dependencies": {
+    "geomagnetism": "^0.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
